@@ -1,106 +1,147 @@
 /**
  * @INPUT: [None - Top level page]
  * @OUTPUT: [Component: Home - Main landing page]
- * @POS: [Route Entry - Orchestrates GeneratorForm and SpritePreview]
+ * @POS: [Route Entry - Orchestrates GeneratorConsole, SpritePreview, and UsageBanner]
  *
  * @SYNC: 一旦本文件逻辑发生变更，必须更新上述注释，并同步更新所属文件夹的 _META.md。
  */
 'use client';
 
 import { useState } from 'react';
-import { GeneratorForm } from '@/components/generator-form';
+import { motion } from 'framer-motion';
+import { GeneratorConsole } from '@/components/generator-console';
 import { SpritePreview } from '@/components/sprite-preview';
+import { UsageBanner } from '@/components/usage-banner';
+import { useUsageLimit } from '@/hooks/use-usage-limit';
 import { Sparkles, Zap, Gamepad2 } from 'lucide-react';
+import { toast } from 'sonner';
+import { Footer } from '@/components/footer';
 
 export default function Home() {
     const [generatedImage, setGeneratedImage] = useState<string | null>(null);
     const [isLoading, setIsLoading] = useState(false);
-    const [error, setError] = useState<string | null>(null);
+    const { remainingGenerations, canGenerate, incrementUsage, dailyLimit, isLoaded } = useUsageLimit();
 
     const handleGenerateStart = () => {
+        if (!canGenerate) {
+            toast.error('Daily Limit Reached', {
+                description: 'Upgrade to continue generating sprites!',
+            });
+            return false;
+        }
         setIsLoading(true);
-        setError(null);
         setGeneratedImage(null);
+        return true;
     };
 
     const handleGenerateSuccess = (imageUrl: string) => {
         setIsLoading(false);
         setGeneratedImage(imageUrl);
+        incrementUsage();
+        toast.success('Sprite sheet generated!', {
+            description: 'Your magic has been woven into pixels.',
+        });
     };
 
     const handleGenerateError = (errorMessage: string) => {
         setIsLoading(false);
-        setError(errorMessage);
+        toast.error('Generation Failed', {
+            description: errorMessage,
+        });
     };
 
     return (
-        <main className="min-h-screen bg-black text-white selection:bg-purple-500/30">
-            {/* Hero Section */}
-            <div className="relative overflow-hidden">
-                <div className="absolute inset-0 bg-[url('/grid-pattern.svg')] opacity-20"></div>
-                <div className="absolute inset-0 bg-gradient-to-b from-purple-900/20 to-black pointer-events-none"></div>
+        <main className="min-h-screen bg-white text-gray-900 selection:bg-purple-200">
+            {/* Fixed Top Navigation Bar */}
+            {isLoaded && (
+                <div className="fixed top-0 left-0 right-0 z-50 bg-white/90 backdrop-blur-xl border-b border-gray-200">
+                    <div className="container mx-auto px-4 py-3 flex justify-end items-center max-w-7xl">
+                        <UsageBanner
+                            remainingGenerations={remainingGenerations}
+                            dailyLimit={dailyLimit}
+                            canGenerate={canGenerate}
+                        />
+                    </div>
+                </div>
+            )}
 
-                <div className="container mx-auto px-4 py-20 relative z-10">
-                    <div className="text-center max-w-3xl mx-auto mb-12">
-                        <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-purple-900/30 border border-purple-500/30 text-purple-400 text-sm font-medium mb-6 animate-in fade-in slide-in-from-bottom-4 duration-700">
+            {/* Hero Section */}
+            <div className="relative overflow-hidden bg-gradient-to-b from-purple-50 to-white">
+                {/* Background effects */}
+                <div className="absolute inset-0 bg-[url('/grid-pattern.svg')] opacity-[0.4]" />
+                <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[800px] h-[600px] bg-purple-100 rounded-full blur-[120px] pointer-events-none" />
+
+                <div className="container mx-auto px-4 py-16 md:py-24 relative z-10 max-w-5xl" style={{ paddingTop: isLoaded ? '5rem' : '4rem' }}>
+                    {/* Hero Text */}
+                    <motion.div
+                        initial={{ opacity: 0, y: 20 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ duration: 0.6 }}
+                        className="text-center max-w-3xl mx-auto mb-12"
+                    >
+                        <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-purple-100 border border-purple-200 text-purple-700 text-sm font-medium mb-6">
                             <Zap className="w-4 h-4" />
-                            <span>Powered by Z Image Turbo</span>
+                            <span>Powered by AI Turbo Models</span>
                         </div>
 
-                        <h1 className="text-5xl md:text-7xl font-bold mb-6 bg-clip-text text-transparent bg-gradient-to-b from-white to-gray-400 animate-in fade-in slide-in-from-bottom-5 duration-700 delay-100">
+                        <h1 className="text-4xl md:text-6xl lg:text-7xl font-bold mb-6 tracking-tight bg-gradient-to-r from-purple-600 to-blue-600 bg-clip-text text-transparent">
                             AI Sprite Sheet Generator
                         </h1>
 
-                        <p className="text-xl text-gray-400 mb-8 animate-in fade-in slide-in-from-bottom-6 duration-700 delay-200">
-                            Create professional game assets in seconds. Just describe your character, choose a style, and let AI do the magic.
+                        <p className="text-lg md:text-xl text-gray-600 mb-6 max-w-2xl mx-auto leading-relaxed">
+                            Create professional game assets in seconds. Describe your character, choose a style, and let AI do the magic.
                         </p>
-                    </div>
+                    </motion.div>
 
-                    {/* Generator Interface */}
-                    <div className="animate-in fade-in slide-in-from-bottom-8 duration-1000 delay-300">
-                        <GeneratorForm
-                            onGenerateStart={handleGenerateStart}
-                            onGenerateSuccess={handleGenerateSuccess}
-                            onGenerateError={handleGenerateError}
-                        />
+                    {/* Generator Console */}
+                    <GeneratorConsole
+                        onGenerateStart={handleGenerateStart}
+                        onGenerateSuccess={handleGenerateSuccess}
+                        onGenerateError={handleGenerateError}
+                        disabled={!canGenerate}
+                        isPremium={remainingGenerations === Infinity}
+                    />
 
-                        {error && (
-                            <div className="max-w-2xl mx-auto mt-4 p-4 bg-red-500/10 border border-red-500/20 rounded-xl text-red-400 text-center">
-                                {error}
-                            </div>
-                        )}
-
-                        <SpritePreview imageUrl={generatedImage} isLoading={isLoading} />
-                    </div>
+                    {/* Result Preview */}
+                    <SpritePreview imageUrl={generatedImage} isLoading={isLoading} />
                 </div>
             </div>
 
             {/* Features Section */}
-            <div className="container mx-auto px-4 py-20 border-t border-gray-800">
-                <div className="grid md:grid-cols-3 gap-8 text-center">
-                    <div className="p-6 rounded-2xl bg-gray-900/30 border border-gray-800">
-                        <div className="w-12 h-12 bg-blue-500/10 rounded-xl flex items-center justify-center mx-auto mb-4 text-blue-400">
-                            <Zap className="w-6 h-6" />
-                        </div>
-                        <h3 className="text-xl font-bold mb-2">Lightning Fast</h3>
-                        <p className="text-gray-400">Generate complete sprite sheets in seconds using the latest Turbo models.</p>
-                    </div>
-                    <div className="p-6 rounded-2xl bg-gray-900/30 border border-gray-800">
-                        <div className="w-12 h-12 bg-purple-500/10 rounded-xl flex items-center justify-center mx-auto mb-4 text-purple-400">
-                            <Gamepad2 className="w-6 h-6" />
-                        </div>
-                        <h3 className="text-xl font-bold mb-2">Game Ready</h3>
-                        <p className="text-gray-400">Optimized for game development with consistent styles and grid layouts.</p>
-                    </div>
-                    <div className="p-6 rounded-2xl bg-gray-900/30 border border-gray-800">
-                        <div className="w-12 h-12 bg-pink-500/10 rounded-xl flex items-center justify-center mx-auto mb-4 text-pink-400">
-                            <Sparkles className="w-6 h-6" />
-                        </div>
-                        <h3 className="text-xl font-bold mb-2">Multiple Styles</h3>
-                        <p className="text-gray-400">From Pixel Art to High-Res Vector, choose the perfect style for your game.</p>
-                    </div>
+            <div className="bg-gray-50 py-20 border-t border-gray-200">
+                <div className="container mx-auto px-4 max-w-5xl">
+                    <motion.div
+                        initial={{ opacity: 0 }}
+                        whileInView={{ opacity: 1 }}
+                        viewport={{ once: true }}
+                        className="grid md:grid-cols-3 gap-8"
+                    >
+                        {[
+                            { icon: Zap, title: 'Lightning Fast', desc: 'Generate complete sprite sheets in seconds using the latest Turbo models.', color: 'blue' },
+                            { icon: Gamepad2, title: 'Game Ready', desc: 'Optimized for game development with consistent styles and grid layouts.', color: 'purple' },
+                            { icon: Sparkles, title: 'Multiple Styles', desc: 'From Pixel Art to Vector, choose the perfect style for your game.', color: 'pink' },
+                        ].map((feature, i) => (
+                            <motion.div
+                                key={feature.title}
+                                initial={{ opacity: 0, y: 20 }}
+                                whileInView={{ opacity: 1, y: 0 }}
+                                viewport={{ once: true }}
+                                transition={{ delay: i * 0.1 }}
+                                className="p-8 rounded-2xl bg-white border border-gray-200 hover:border-gray-300 hover:shadow-lg transition-all text-center"
+                            >
+                                <div className={`w-14 h-14 mx-auto bg-${feature.color}-50 rounded-xl flex items-center justify-center mb-4 text-${feature.color}-600`}>
+                                    <feature.icon className="w-7 h-7" />
+                                </div>
+                                <h3 className="text-lg font-bold mb-3 text-gray-900">{feature.title}</h3>
+                                <p className="text-sm text-gray-600 leading-relaxed">{feature.desc}</p>
+                            </motion.div>
+                        ))}
+                    </motion.div>
                 </div>
             </div>
+
+            {/* Footer */}
+            <Footer />
         </main>
     );
 }
